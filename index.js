@@ -1,6 +1,6 @@
 const express = require("express");
 const cors = require("cors");
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 require("dotenv").config();
 const port = process.env.PORT || 5000;
 const app = express();
@@ -19,10 +19,11 @@ async function run() {
     await client.connect();
     const TCollection = client.db("tools").collection("TCollection");
     const OCollection = client.db("tools").collection("OCollection");
+    const UCollection = client.db("tools").collection("UCollection");
 
-    // tools collection 
+    // tools collection
     app.get("/tools-collection", async (req, res) => {
-      const getData = await TCollection.find({}).toArray();
+      const getData = await TCollection.find().toArray();
       res.send(getData);
     });
 
@@ -37,7 +38,13 @@ async function run() {
       const orders = await OCollection.find({ email }).toArray();
       res.send(orders);
     });
-    
+
+    // users collection with both user and admin
+    app.post("/users", async (req, res) => {
+      const email = req.body;
+      const result = await UCollection.insertOne(email);
+      res.send(result);
+    });
   } finally {
   }
 }
