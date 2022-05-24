@@ -40,9 +40,28 @@ async function run() {
     });
 
     // users collection with both user and admin
+    app.get("/users", async (req, res) => {
+      const result = await UCollection.find().toArray();
+      res.send(result);
+    });
     app.post("/users", async (req, res) => {
       const email = req.body;
+      const exit = await UCollection.find(email).toArray();
+
+      if (exit[0]?.email === email.email) {
+        return res.send({ massage: "this user already have in our database" });
+      }
       const result = await UCollection.insertOne(email);
+      res.send(result);
+    });
+    // make admin
+    app.put("/users/:id", async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: ObjectId(id) };
+      const updateDoc = {
+        $set: { role: "admin" },
+      };
+      const result = await UCollection.updateOne(filter, updateDoc);
       res.send(result);
     });
   } finally {
