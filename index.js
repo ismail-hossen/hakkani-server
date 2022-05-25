@@ -22,7 +22,7 @@ async function run() {
     const UCollection = client.db("tools").collection("UCollection");
 
     // tools collection
-    app.get("/tools-collection", async (req, res) => {
+    app.get("/tools-collection", async (_, res) => {
       const getData = await TCollection.find().toArray();
       res.send(getData);
     });
@@ -38,12 +38,25 @@ async function run() {
       const orders = await OCollection.find({ email }).toArray();
       res.send(orders);
     });
-
-    // users collection with both user and admin
-    app.get("/users", async (req, res) => {
-      const result = await UCollection.find().toArray();
+    app.delete("/order-collection/:id", async (req, res) => {
+      const id = req.params.id;
+      const result = await OCollection.deleteOne({ _id: ObjectId(id) });
       res.send(result);
     });
+    // delete all orders for specific person
+    app.delete("/delete-order", async (req, res) => {
+      const email = req.query.email;
+      const deleteAll = await OCollection.deleteMany({ email });
+      res.send({ massage: "successfully deleted" });
+    });
+
+    // users collection with both user and admin
+    app.get("/users", async (_, res) => {
+      const user = await UCollection.find().toArray();
+      const order = await OCollection.find().toArray();
+      res.send({ user, order });
+    });
+
     app.post("/users", async (req, res) => {
       const email = req.body;
       const exit = await UCollection.find(email).toArray();
@@ -54,6 +67,7 @@ async function run() {
       const result = await UCollection.insertOne(email);
       res.send(result);
     });
+
     // make admin
     app.put("/users/:id", async (req, res) => {
       const id = req.params.id;
@@ -63,6 +77,15 @@ async function run() {
       };
       const result = await UCollection.updateOne(filter, updateDoc);
       res.send(result);
+    });
+    app.get("/admin/:email", async (req, res) => {
+      const email = req.params.email;
+      const result = await UCollection.find({ email }).toArray();
+      if (result[0]?.role === "admin") {
+        res.send(result);
+      } else {
+        return res.send({ massage: "this person not a admin!" });
+      }
     });
   } finally {
   }
