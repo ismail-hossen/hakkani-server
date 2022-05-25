@@ -5,6 +5,7 @@ require("dotenv").config();
 const port = process.env.PORT || 5000;
 const app = express();
 const jwt = require("jsonwebtoken");
+const { restart } = require("nodemon");
 
 app.use(cors());
 app.use(express.json());
@@ -22,6 +23,7 @@ async function run() {
     const TCollection = client.db("tools").collection("TCollection");
     const OCollection = client.db("tools").collection("OCollection");
     const UCollection = client.db("tools").collection("UCollection");
+    const RCollection = client.db("tools").collection("RCollection");
 
     // tools collection
     app.get("/tools-collection", async (_, res) => {
@@ -52,6 +54,17 @@ async function run() {
       res.send({ massage: "successfully deleted" });
     });
 
+    // review collection
+    app.post("/review", async (req, res) => {
+      const review = req.body;
+      const result = await RCollection.insertOne(review);
+      res.send({massage:'Thanks for your feedback'})
+    });
+    app.get('/review', async (req, res)=>{
+      const result = await RCollection.find().toArray()
+      res.send(result)
+    })
+
     // users collection with both user and admin
     app.get("/users", async (_, res) => {
       const user = await UCollection.find().toArray();
@@ -75,23 +88,6 @@ async function run() {
       });
       res.send({ result, token });
     });
-
-    // app.post("/users", async (req, res) => {
-    //   const email = req.body;
-    //   console.log(email);
-
-    //   const exit = await UCollection.find(email).toArray();
-
-    //   if (exit[0]?.email === email.email) {
-    //     return res.send({ massage: "this user already have in our database" });
-    //   }
-    //   const result = await UCollection.insertOne(email);
-    //   const token = jwt.sign({ email }, process.env.ACCESS_TOKEN, {
-    //     expiresIn: "1h",
-    //   });
-    //   res.send({ result, token });
-    // });
-
     // make admin
     app.put("/users/:id", async (req, res) => {
       const id = req.params.id;
