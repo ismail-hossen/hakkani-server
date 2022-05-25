@@ -17,6 +17,21 @@ const client = new MongoClient(uri, {
   serverApi: ServerApiVersion.v1,
 });
 
+function verifyToken(req, res, next) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) {
+    return res.status(401).send({ message: 'UnAuthorized access' });
+  }
+  const token = authHeader.split(' ')[1];
+  jwt.verify(token, process.env.ACCESS_TOKEN, function (err, decoded) {
+    if (err) {
+      return res.status(403).send({ message: 'Forbidden access' })
+    }
+    req.decoded = decoded;
+    next();
+  });
+}
+
 async function run() {
   try {
     await client.connect();
@@ -37,7 +52,7 @@ async function run() {
       const orders = await OCollection.insertOne(body);
       res.send(orders);
     });
-    app.get("/order-collection/:email", async (req, res) => {
+    app.get("/order-collection/:email",verifyToken, async (req, res) => {
       const email = req.params.email;
       const orders = await OCollection.find({ email }).toArray();
       res.send(orders);
@@ -55,15 +70,15 @@ async function run() {
     });
 
     // review collection
-    app.post("/review", async (req, res) => {
+    app.post("/review",verifyToken, async (req, res) => {
       const review = req.body;
       const result = await RCollection.insertOne(review);
-      res.send({massage:'Thanks for your feedback'})
+      res.send({ massage: "Thanks for your feedback" });
     });
-    app.get('/review', async (req, res)=>{
-      const result = await RCollection.find().toArray()
-      res.send(result)
-    })
+    app.get("/review", async (req, res) => {
+      const result = await RCollection.find().toArray();
+      res.send(result);
+    });
 
     // users collection with both user and admin
     app.get("/users", async (_, res) => {
