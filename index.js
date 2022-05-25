@@ -4,6 +4,8 @@ const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 require("dotenv").config();
 const port = process.env.PORT || 5000;
 const app = express();
+const jwt = require("jsonwebtoken");
+
 app.use(cors());
 app.use(express.json());
 
@@ -57,16 +59,38 @@ async function run() {
       res.send({ user, order });
     });
 
-    app.post("/users", async (req, res) => {
+    app.put("/users", async (req, res) => {
       const email = req.body;
-      const exit = await UCollection.find(email).toArray();
-
-      if (exit[0]?.email === email.email) {
-        return res.send({ massage: "this user already have in our database" });
-      }
-      const result = await UCollection.insertOne(email);
-      res.send(result);
+      const options = { upsert: true };
+      const updateDoc = {
+        $set: email,
+      };
+      const result = await UCollection.updateOne(
+        { email: email.email },
+        updateDoc,
+        options
+      );
+      const token = jwt.sign({ email }, process.env.ACCESS_TOKEN, {
+        expiresIn: "1h",
+      });
+      res.send({ result, token });
     });
+
+    // app.post("/users", async (req, res) => {
+    //   const email = req.body;
+    //   console.log(email);
+
+    //   const exit = await UCollection.find(email).toArray();
+
+    //   if (exit[0]?.email === email.email) {
+    //     return res.send({ massage: "this user already have in our database" });
+    //   }
+    //   const result = await UCollection.insertOne(email);
+    //   const token = jwt.sign({ email }, process.env.ACCESS_TOKEN, {
+    //     expiresIn: "1h",
+    //   });
+    //   res.send({ result, token });
+    // });
 
     // make admin
     app.put("/users/:id", async (req, res) => {
