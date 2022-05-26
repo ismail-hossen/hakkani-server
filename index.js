@@ -5,6 +5,7 @@ require("dotenv").config();
 const port = process.env.PORT || 5000;
 const app = express();
 const jwt = require("jsonwebtoken");
+const stripe = require("stripe")(process.env.stripe_secret_key);
 const { restart } = require("nodemon");
 
 app.use(cors());
@@ -20,12 +21,12 @@ const client = new MongoClient(uri, {
 function verifyToken(req, res, next) {
   const authHeader = req.headers.authorization;
   if (!authHeader) {
-    return res.status(401).send({ message: 'UnAuthorized access' });
+    return res.status(401).send({ message: "UnAuthorized access" });
   }
-  const token = authHeader.split(' ')[1];
+  const token = authHeader.split(" ")[1];
   jwt.verify(token, process.env.ACCESS_TOKEN, function (err, decoded) {
     if (err) {
-      return res.status(403).send({ message: 'Forbidden access' })
+      return res.status(403).send({ message: "Forbidden access" });
     }
     req.decoded = decoded;
     next();
@@ -39,6 +40,28 @@ async function run() {
     const OCollection = client.db("tools").collection("OCollection");
     const UCollection = client.db("tools").collection("UCollection");
     const RCollection = client.db("tools").collection("RCollection");
+    const PCollection = client.db("tools").collection("PCollection");
+    const verifyAdmin = async (req, res, next) => {
+      const email = req.decoded.email;
+      const emailAddress = await UCollection.findOne({ email: email.email });
+      if (emailAddress.role === "admin") {
+        next();
+      } else {
+        res.status(403).send({ message: "forbidden" });
+      }
+    };
+
+    // payment method
+    app.post("/create-payment-intent", verifyToken, async (req, res) => {
+      const service = req.body;
+      const amount = parseInt(service.price) * 100;
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: amount,
+        currency: "usd",
+        payment_method_types: ["card"],
+      });
+      res.send({ clientSecret: paymentIntent.client_secret });
+    });
 
     // tools collection
     app.get("/tools-collection", async (_, res) => {
@@ -46,13 +69,14 @@ async function run() {
       res.send(getData);
     });
 
-    // order collection
+    // orders collection
     app.post("/order-collection", async (req, res) => {
       const body = req.body;
       const orders = await OCollection.insertOne(body);
       res.send(orders);
     });
-    app.get("/order-collection/:email",verifyToken, async (req, res) => {
+
+    app.get("/order-collection/:email", verifyToken, async (req, res) => {
       const email = req.params.email;
       const orders = await OCollection.find({ email }).toArray();
       res.send(orders);
@@ -62,6 +86,26 @@ async function run() {
       const result = await OCollection.deleteOne({ _id: ObjectId(id) });
       res.send(result);
     });
+    app.get("/find-one-order/:id", verifyToken, async (req, res) => {
+      const id = req.params.id;
+      const result = await OCollection.find({ _id: ObjectId(id) }).toArray();
+      res.send(result);
+    });
+    app.patch("/payment/:id", verifyToken, async (req, res) => {
+      const id = req.params.id;
+      const payment = req.body;
+      const filter = { _id: ObjectId(id) };
+      const updatedDoc = {
+        $set: {
+          paid: true,
+          transactionId: payment.transactionId,
+        },
+      };
+
+      const result = await PCollection.insertOne(payment);
+      const updatedOrder = await OCollection.updateOne(filter, updatedDoc);
+      res.send(updatedOrder);
+    });
     // delete all orders for specific person
     app.delete("/delete-order", async (req, res) => {
       const email = req.query.email;
@@ -70,7 +114,7 @@ async function run() {
     });
 
     // review collection
-    app.post("/review",verifyToken, async (req, res) => {
+    app.post("/review", async (req, res) => {
       const review = req.body;
       const result = await RCollection.insertOne(review);
       res.send({ massage: "Thanks for your feedback" });
@@ -104,7 +148,7 @@ async function run() {
       res.send({ result, token });
     });
     // make admin
-    app.put("/users/:id", async (req, res) => {
+    app.put("/users/:id", verifyToken, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const filter = { _id: ObjectId(id) };
       const updateDoc = {
