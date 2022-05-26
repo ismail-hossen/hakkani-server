@@ -17,7 +17,6 @@ const client = new MongoClient(uri, {
   useUnifiedTopology: true,
   serverApi: ServerApiVersion.v1,
 });
-
 function verifyToken(req, res, next) {
   const authHeader = req.headers.authorization;
   if (!authHeader) {
@@ -54,13 +53,15 @@ async function run() {
     // payment method
     app.post("/create-payment-intent", verifyToken, async (req, res) => {
       const service = req.body;
-      const amount = parseInt(service.price) * 100;
-      const paymentIntent = await stripe.paymentIntents.create({
-        amount: amount,
-        currency: "usd",
-        payment_method_types: ["card"],
-      });
-      res.send({ clientSecret: paymentIntent.client_secret });
+      const amount = service.price * 100;
+      if (service.price) {
+        const paymentIntent = await stripe.paymentIntents.create({
+          amount: amount,
+          currency: "usd",
+          payment_method_types: ["card"],
+        });
+        res.send({ clientSecret: paymentIntent.client_secret });
+      }
     });
 
     // tools collection
@@ -109,7 +110,7 @@ async function run() {
     // delete all orders for specific person
     app.delete("/delete-order", async (req, res) => {
       const email = req.query.email;
-      const deleteAll = await OCollection.deleteMany({ email });
+      const deleteAll = await OCollection.deleteMany({ email, paid: null });
       res.send({ massage: "successfully deleted" });
     });
 
