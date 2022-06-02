@@ -69,6 +69,16 @@ async function run() {
       const getData = await TCollection.find().toArray();
       res.send(getData);
     });
+    app.post(
+      "/tools-collection",
+      verifyToken,
+      verifyAdmin,
+      async (req, res) => {
+        const product = req.body;
+        const result = await TCollection.insertOne(product);
+        res.send(result);
+      }
+    );
 
     // orders collection
     app.post("/order-collection", async (req, res) => {
